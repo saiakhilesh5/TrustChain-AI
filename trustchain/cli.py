@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--run", required=True, help="Scan output directory")
     report.add_argument("--no-ai", action="store_true", help="Skip Claude agents (tools-only report)")
 
+    validate = subparsers.add_parser("validate", help="Retrospective validation on dependency-bump history")
+    validate.add_argument("--target", required=True, help="Path to the repository to validate against")
+    validate.add_argument("--output", required=True, help="Directory for validation results")
+    validate.add_argument("--limit", type=int, default=12, help="Number of bump commits to analyze")
+
     return parser
 
 
@@ -49,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_graph(args)
     if args.command == "report":
         return _cmd_report(args)
+    if args.command == "validate":
+        return _cmd_validate(args)
 
     return 0
 
@@ -150,6 +157,28 @@ def _cmd_report(args) -> int:
     html_path, json_path = render_report(report, run_dir)
     print(f"[report]  HTML: {html_path}")
     print(f"[report]  JSON: {json_path}")
+    return 0
+
+
+def _cmd_validate(args) -> int:
+    from trustchain.validation.harness import run_validation
+
+    print(f"[validate] mining dependency-bump commits in {args.target} ...")
+    result = run_validation(args.target, limit=args.limit)
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=True)
+    out_file = output / "validation_report.json"
+    out_file.write_text(json.dumps(result, indent=2), encoding="utf-8")
+
+    vuln = result["vulnerability_detection"]
+    diff = result["version_change_detection"]
+    print(f"[validate] {result['commits_analyzed']} commits analyzed, "
+          f"{result['ground_truth_security_fixes']} confirmed security fixes")
+    print(f"[validate] vulnerability detection: {vuln['detected']} detected, {vuln['missed']} missed "
+          f"(recall {vuln['recall']})")
+    print(f"[validate] version-change detection: {diff['detected']}/{diff['total']} "
+          f"(recall {diff['recall']})")
+    print(f"[validate] report written to {out_file}")
     return 0
 
 

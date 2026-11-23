@@ -53,16 +53,27 @@ def diff_inventories(before: dict, after: dict) -> list[dict]:
             })
 
     before_by_name: dict[tuple[str, str], list[dict]] = {}
+    after_by_name: dict[tuple[str, str], list[dict]] = {}
     for comp in before_comps.values():
         before_by_name.setdefault((comp["ecosystem"], comp["name"]), []).append(comp)
     for comp in after_comps.values():
-        group = before_by_name.get((comp["ecosystem"], comp["name"]), [])
-        previous = next(
-            (old for old in group if old["key"] != comp["key"] and old["version"] != comp["version"]),
-            None,
-        )
-        if previous is not None:
-            direction = _version_direction(previous["version"], comp["version"])
+        after_by_name.setdefault((comp["ecosystem"], comp["name"]), []).append(comp)
+
+    for (eco, name), before_group in before_by_name.items():
+        after_group = after_by_name.get((eco, name), [])
+        before_versions = {c["version"] for c in before_group}
+        after_versions = {c["version"] for c in after_group}
+        removed = before_versions - after_versions
+        added = after_versions - before_versions
+        if not added:
+            continue
+        previous_version = sorted(removed)[0] if removed else None
+        if previous_version is None:
+            continue  # pure addition is reported as dependency-added
+        for comp in after_group:
+            if comp["version"] not in added:
+                continue
+            direction = _version_direction(previous_version, comp["version"])
             findings.append({
                 "type": "anomaly",
                 "anomaly": "dependency-version-changed",
@@ -70,7 +81,7 @@ def diff_inventories(before: dict, after: dict) -> list[dict]:
                 "component_name": comp["name"],
                 "version": comp["version"],
                 "detail": (
-                    f"'{comp['name']}' changed {previous['version']} -> {comp['version']} "
+                    f"'{comp['name']}' changed {previous_version} -> {comp['version']} "
                     f"({direction}). Version changes can alter transitive dependency trees."
                 ),
                 "severity": "LOW" if direction == "upgrade" else "MEDIUM",
@@ -78,7 +89,7 @@ def diff_inventories(before: dict, after: dict) -> list[dict]:
                 "evidence": {
                     "kind": "inventory-diff",
                     "change": "version-changed",
-                    "previous_version": previous["version"],
+                    "previous_version": previous_version,
                     "before_ref": before.get("target", ""),
                     "after_ref": after.get("target", ""),
                     "detected_at": datetime.now(timezone.utc).isoformat(),
