@@ -1,6 +1,6 @@
 networkx>=3.1
 pyvis>=0.3.2
 jinja2>=3.1.2
-anthropic>=0.40.0
 requests>=2.31.0
 pyyaml
+flask>=3.0.0

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrustChain-AI — Software Supply Chain Guardian</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js" defer></script>
+<style>
+  :root {
+    --bg: #0b1220; --panel: #111827; --panel2: #1f2937; --border: #374151;
+    --text: #e5e7eb; --muted: #9ca3af; --accent: #f59e0b; --blue: #3b82f6;
+    --red: #ef4444; --green: #10b981; --purple: #8b5cf6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: "Segoe UI", system-ui, sans-serif; }
+  a { color: var(--blue); }
+  header { padding: 22px 28px; border-bottom: 1px solid var(--border);
+           background: linear-gradient(180deg, #101a2e, var(--bg)); }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: .5px; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  main { padding: 20px 28px; max-width: 1280px; margin: 0 auto; }
+  .scanbar { display: flex; gap: 10px; margin-bottom: 18px; }
+  .scanbar input { flex: 1; padding: 11px 14px; border-radius: 8px; border: 1px solid var(--border);
+                   background: var(--panel); color: var(--text); font-size: 14px; }
+  .scanbar button { padding: 11px 22px; border-radius: 8px; border: none; background: var(--accent);
+                    color: #1c1917; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .scanbar button:disabled { opacity: .5; cursor: wait; }
+  .hint { color: var(--muted); font-size: 12px; margin: -10px 0 16px; }
+  .hint code { background: var(--panel2); padding: 1px 6px; border-radius: 4px; }
+  nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
+  nav.tabs button { background: none; border: none; color: var(--muted); padding: 10px 16px;
+                    font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; }
+  nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+  nav.tabs button:disabled { color: #4b5563; cursor: not-allowed; }
+  .statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .stat .value { font-size: 26px; font-weight: 800; }
+  .stat .label { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .progress-outer { background: var(--panel2); height: 10px; border-radius: 6px; overflow: hidden; margin: 6px 0 14px; }
+  .progress-inner { height: 100%; background: linear-gradient(90deg, var(--green), var(--accent)); width: 0; transition: width .5s; }
+  .checklist { list-style: none; padding: 0; margin: 0; }
+  .checklist li { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+                  padding: 13px 16px; margin-bottom: 9px; display: flex; gap: 12px; align-items: flex-start; }
+  .checklist .mark { min-width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+                     justify-content: center; font-size: 13px; font-weight: 800; margin-top: 1px;
+                     background: var(--panel2); color: var(--muted); }
+  .checklist li.done .mark { background: var(--green); color: #052e16; }
+  .checklist li.running .mark { background: var(--accent); color: #1c1917; }
+  .checklist li.error .mark { background: var(--red); color: #fff; }
+  .checklist .title { font-weight: 600; font-size: 14px; }
+  .checklist .detail { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .checklist .ev { color: var(--purple); font-size: 11.5px; margin-top: 3px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+  th { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+  .b-critical, .b-high { background: var(--red); color: #fff; }
+  .b-medium, .b-moderate { background: var(--accent); color: #1c1917; }
+  .b-low { background: var(--blue); color: #fff; }
+  .b-unknown { background: var(--panel2); color: var(--muted); }
+  .b-info { background: var(--panel2); color: var(--muted); }
+  .b-verified { background: var(--green); color: #052e16; }
+  .b-inferred { background: var(--purple); color: #fff; }
+  .mono { font-family: Consolas, monospace; font-size: 12.5px; }
+  .paths { color: var(--muted); font-size: 12px; font-family: Consolas, monospace; margin-top: 3px; }
+  .ai { background: rgba(139, 92, 246, .12); border-left: 3px solid var(--purple); padding: 6px 10px;
+        margin-top: 6px; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .ai .tag { color: var(--purple); font-weight: 700; font-size: 10.5px; text-transform: uppercase; }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters button { background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+                    padding: 6px 14px; border-radius: 999px; font-size: 12.5px; cursor: pointer; }
+  .filters button.active { border-color: var(--accent); color: var(--text); }
+  .filters input { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+                   background: var(--panel); color: var(--text); }
+  #graphwrap { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+               height: 640px; position: relative; }
+  #graph { width: 100%; height: 100%; }
+  .legend { position: absolute; top: 10px; left: 10px; background: rgba(17,24,39,.9); padding: 8px 12px;
+            border-radius: 8px; font-size: 12px; z-index: 5; }
+  .legend span { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+  .errbox { background: rgba(239,68,68,.12); border: 1px solid var(--red); color: #fca5a5;
+            padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 13px; }
+  .empty { color: var(--muted); padding: 40px; text-align: center; }
+  .runslist { margin-top: 10px; }
+  .runslist button { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+                     padding: 7px 12px; border-radius: 8px; margin: 0 6px 6px 0; cursor: pointer; font-size: 12.5px; }
+  iframe { width: 100%; height: 800px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+  .section-title { font-size: 15px; font-weight: 700; margin: 4px 0 12px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--accent);
+             border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;
+             margin-right: 6px; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Trust<span>Chain</span>-AI — Software Supply Chain Guardian</h1>
+  <p>Know What You Build. Trust What You Ship. &nbsp;·&nbsp; Discover → Detect → Evidence</p>
+</header>
+<main>
+  <div class="scanbar">
+    <input id="repoUrl" type="text" placeholder="https://github.com/strapi/strapi" spellcheck="false">
+    <button id="scanBtn" onclick="startScan()">Scan repository</button>
+  </div>
+  <div class="hint">Any public GitHub repository. Example: <code>https://github.com/strapi/strapi</code>
+    — a local clone is reused when available.</div>
+
+  <div id="status" class="errbox" style="display:none"></div>
+  <div id="runs" class="runslist"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="checklist" class="active">Day 1 Checklist</button>
+    <button data-tab="vulns" id="tab-vulns">Vulnerabilities (<span id="nvuln">0</span>)</button>
+    <button data-tab="anomalies" id="tab-anomalies">Anomalies (<span id="nanom">0</span>)</button>
+    <button data-tab="graph">Dependency Graph</button>
+    <button data-tab="components">Components</button>
+    <button data-tab="report">Guardian Report</button>
+  </nav>
+
+  <section id="panel-checklist">
+    <div class="statgrid" id="statgrid"></div>
+    <div class="progress-outer"><div class="progress-inner" id="checkbar"></div></div>
+    <ul class="checklist" id="checklist"><li class="empty">Paste a GitHub URL above and hit <b>Scan repository</b> to begin.</li></ul>
+  </section>
+
+  <section id="panel-vulns" style="display:none">
+    <div class="filters" id="sevfilter"></div>
+    <div id="vulnbody"><div class="empty">No scan yet.</div></div>
+  </section>
+
+  <section id="panel-anomalies" style="display:none">
+    <div id="anombody"><div class="empty">No scan yet.</div></div>
+  </section>
+
+  <section id="panel-graph" style="display:none">
+    <div class="filters">
+      <input id="graphSearch" type="text" placeholder="find node… e.g. minimatch" oninput="focusNode(this.value)">
+      <button onclick="resetPhysics()">Re-layout</button>
+    </div>
+    <div id="graphwrap">
+      <div class="legend">
+        <span style="background:#f59e0b"></span>application &nbsp;
+        <span style="background:#3b82f6"></span>direct dep &nbsp;
+        <span style="background:#6b7280"></span>transitive &nbsp;
+        <span style="background:#ef4444"></span>vulnerable
+      </div>
+      <div id="graph"></div>
+    </div>
+  </section>
+
+  <section id="panel-components" style="display:none">
+    <div class="filters">
+      <input id="compSearch" type="text" placeholder="search components…" oninput="loadComponents(this.value)">
+    </div>
+    <div id="compbody"><div class="empty">No scan yet.</div></div>
+  </section>
+
+  <section id="panel-report" style="display:none">
+    <div class="section-title">Guardian Report <a id="reportLink" href="#" target="_blank" style="font-size:12px">open in new tab ↗</a></div>
+    <iframe id="reportFrame"></iframe>
+  </section>
+</main>
+
+<script>
+let currentRun = null, pollTimer = null, network = null, graphData = null;
+let sevFilter = "ALL";
+
+// ---- tabs -------------------------------------------------------------
+document.querySelectorAll("#tabs button").forEach(btn => {
+  btn.addEventListener("click", () => selectTab(btn.dataset.tab));
+});
+function selectTab(name) {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll("main > section").forEach(s => s.style.display = s.id === "panel-" + name ? "" : "none");
+  if (name === "report" && currentRun) loadReport();
+  if (name === "graph" && currentRun) loadGraph();
+}
+
+// ---- scan lifecycle ---------------------------------------------------
+async function startScan() {
+  const url = document.getElementById("repoUrl").value.trim();
+  if (!url) return;
+  const btn = document.getElementById("scanBtn");
+  btn.disabled = true; btn.textContent = "Starting…";
+  try {
+    const res = await fetch("/api/scan", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({url}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    currentRun = data;
+    setStatus("");
+    pollTimer = setInterval(pollRun, 2000);
+    resetView();
+  } catch (err) {
+    setStatus(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Scan repository";
+  }
+}
+
+async function pollRun() {
+  if (!currentRun) return clearInterval(pollTimer);
+  const res = await fetch("/api/runs/" + currentRun.id);
+  if (!res.ok) return;
+  currentRun = await res.json();
+  await refreshChecklist();
+  if (currentRun.status !== "running" && currentRun.status !== "queued") {
+    clearInterval(pollTimer);
+    if (currentRun.status === "error") setStatus(currentRun.error);
+    await loadCounts();
+    loadGraph();
+  }
+}
+
+function setStatus(message) {
+  const box = document.getElementById("status");
+  box.style.display = message ? "" : "none";
+  box.textContent = message;
+}
+
+function resetView() {
+  document.getElementById("checklist").innerHTML =
+    '<li class="empty"><span class="spinner"></span> starting scan…</li>';
+  ["vulnbody", "anombody", "compbody"].forEach(id =>
+    document.getElementById(id).innerHTML = '<div class="empty">Waiting for scan…</div>');
+  document.getElementById("statgrid").innerHTML = "";
+  if (network) { network.destroy(); network = null; }
+}
+
+// ---- checklist + stats --------------------------------------------------
+async function refreshChecklist() {
+  if (!currentRun) return;
+  const res = await fetch("/api/runs/" + currentRun.id + "/checklist");
+  if (!res.ok) return;
+  const data = await res.json();
+  const ul = document.getElementById("checklist");
+  ul.innerHTML = "";
+  for (const item of data.items) {
+    const li = document.createElement("li");
+    li.className = item.status;
+    const mark = item.status === "done" ? "✓" : item.status === "running" ? "…" :
+                 item.status === "error" ? "!" : "";
+    li.innerHTML = `<div class="mark">${mark}</div>
+      <div><div class="title">${esc(item.title)}</div>
+      <div class="detail">${esc(item.detail)}</div>
+      <div class="ev">evidence: ${esc(item.evidence)}</div></div>`;
+    ul.appendChild(li);
+  }
+  document.getElementById("checkbar").style.width = data.percent + "%";
+  const inv = await fetch("/api/runs/" + currentRun.id + "/inventory").then(r => r.ok ? r.json() : null);
+  const stats = inv && inv.stats ? inv.stats : {};
+  const vuln = await fetch("/api/runs/" + currentRun.id + "/vulnerabilities").then(r => r.ok ? r.json() : null);
+  const anom = await fetch("/api/runs/" + currentRun.id + "/anomalies").then(r => r.ok ? r.json() : null);
+  renderStats(stats, vuln, anom, data);
+}
+
+function renderStats(stats, vuln, anom, checklist) {
+  const cells = [
+    [stats.total ?? "—", "components"],
+    [stats.direct ?? "—", "direct deps"],
+    [stats.transitive ?? "—", "transitive deps"],
+    [vuln ? vuln.total : "—", "vulnerabilities"],
+    [anom ? anom.total : "—", "anomalies"],
+    [checklist.percent + "%", "day 1 complete"],
+  ];
+  document.getElementById("statgrid").innerHTML = cells.map(
+    ([v, l]) => `<div class="stat"><div class="value">${v}</div><div class="label">${l}</div></div>`
+  ).join("");
+  if (vuln) document.getElementById("nvuln").textContent = vuln.total;
+  if (anom) document.getElementById("nanom").textContent = anom.total;
+  if (vuln) renderSevFilter(vuln.by_severity || {});
+}
+
+// ---- vulnerabilities ---------------------------------------------------
+function renderSevFilter(bySeverity) {
+  const box = document.getElementById("sevfilter");
+  const options = ["ALL", "CRITICAL", "HIGH", "MEDIUM", "MODERATE", "LOW", "UNKNOWN"]
+    .filter(s => s === "ALL" || bySeverity[s]);
+  box.innerHTML = options.map(s =>
+    `<button class="${sevFilter === s ? "active" : ""}" onclick="setSev('${s}')">${s}${s !== "ALL" ? " (" + bySeverity[s] + ")" : ""}</button>`
+  ).join("");
+}
+function setSev(sev) { sevFilter = sev; loadCounts().then(() => renderSevFilter(window._bySev || {})); }
+
+async function loadCounts() {
+  if (!currentRun) return;
+  const res = await fetch("/api/runs/" + currentRun.id + "/vulnerabilities");
+  if (res.ok) {
+    const data = await res.json();
+    window._bySev = data.by_severity;
+    document.getElementById("nvuln").textContent = data.total;
+    renderVulns(data, data.total ? null : "No known vulnerabilities found (OSV.dev).");
+  }
+  const ares = await fetch("/api/runs/" + currentRun.id + "/anomalies");
+  if (ares.ok) {
+    const adata = await ares.json();
+    document.getElementById("nanom").textContent = adata.total;
+    renderAnomalies(adata, adata.total ? null : "No supply-chain anomalies detected.");
+  }
+}
+
+function renderVulns(data, emptyMessage) {
+  let findings = data.findings || [];
+  if (sevFilter !== "ALL") findings = findings.filter(f => f.severity === sevFilter);
+  const box = document.getElementById("vulnbody");
+  if (!findings.length) { box.innerHTML = `<div class="empty">${emptyMessage || "No findings for this filter."}</div>`; return; }
+  const rows = findings.map(f => `
+    <tr>
+      <td><span class="badge b-${(f.severity || "unknown").toLowerCase()}">${f.severity}</span></td>
+      <td class="mono"><b>${esc(f.component_name || f.component)}</b>@${esc(f.version || "")}
+          <div class="paths">${(f.dependency_paths || []).slice(0, 3).map(p => "ROOT → " + p.slice(1).join(" → ")).join("<br>")}</div></td>
+      <td class="mono">${esc(f.cve || f.advisory_id || "")}<div style="color:var(--muted)">${esc(f.advisory_id || "")}</div></td>
+      <td>${f.cvss_score ?? "—"}</td>
+      <td class="mono">${(f.fixed_versions || []).map(esc).join(", ") || "—"}</td>
+      <td>${f.ai_analysis ? `<div class="ai"><span class="tag">AI inference</span> · ${esc(f.ai_analysis.attention_reason || f.ai_analysis.risk_level || "")} <i>(${esc(f.ai_analysis.confidence || "")} confidence)</i></div>` : ""}</td>
+    </tr>`).join("");
+  box.innerHTML = `<table>
+    <tr><th>Severity</th><th>Component (dependency path)</th><th>Advisory</th><th>CVSS</th><th>Fixed in</th><th>AI analysis</th></tr>
+    ${rows}</table>`;
+}
+
+// ---- anomalies -----------------------------------------------------------
+function renderAnomalies(data, emptyMessage) {
+  const box = document.getElementById("anombody");
+  if (!data.total) { box.innerHTML = `<div class="empty">${emptyMessage}</div>`; return; }
+  const rows = data.findings.map(f => `
+    <tr>
+      <td><span class="badge ${f.severity === "HIGH" ? "b-high" : f.severity === "MEDIUM" ? "b-medium" : "b-info"}">${esc(f.anomaly || "")}</span></td>
+      <td class="mono"><b>${esc(f.component || "—")}</b></td>
+      <td>${esc(f.detail || "")}</td>
+      <td><span class="badge ${f.verified ? "b-verified" : "b-inferred"}">${f.verified ? "verified" : "inferred"}</span></td>
+      <td>${f.evidence ? `<span class="mono" style="font-size:11.5px">${esc((f.evidence.file || f.evidence.location || "") + (f.evidence.line ? ":" + f.evidence.line : ""))}</span>` : "—"}</td>
+      <td>${f.ai_analysis ? `<div class="ai"><span class="tag">AI</span> ${esc(f.ai_analysis.recommended_action || f.ai_analysis.verdict || "")}</div>` : ""}</td>
+    </tr>`).join("");
+  box.innerHTML = `<table>
+    <tr><th>Type</th><th>Component</th><th>Detail</th><th>Confidence</th><th>Evidence</th><th>AI</th></tr>
+    ${rows}</table>`;
+}
+
+// ---- graph ---------------------------------------------------------------
+async function loadGraph() {
+  if (!currentRun || network) return;
+  const res = await fetch("/api/runs/" + currentRun.id + "/graph");
+  if (!res.ok) return;
+  graphData = await res.json();
+  const container = document.getElementById("graph");
+  const nodes = new vis.DataSet(graphData.nodes);
+  const edges = new vis.DataSet(graphData.edges);
+  const stats = graphData.stats;
+  const label = stats.total_nodes > stats.shown_nodes
+    ? `showing ${stats.shown_nodes}/${stats.total_nodes} nodes (${stats.vulnerable} vulnerable highlighted)`
+    : `${stats.total_nodes} nodes · ${stats.vulnerable} vulnerable`;
+  const usePhysics = graphData.nodes.length <= 400;
+  network = new vis.Network(container, {nodes, edges}, {
+    layout: {improvedLayout: !usePhysics},
+    physics: usePhysics
+      ? {enabled: true, solver: "forceAtlas2Based", forceAtlas2Based: {gravity: -60, springLength: 120},
+         stabilization: {iterations: 150, fit: true}}
+      : {enabled: false},
+    interaction: {hover: true, zoomView: true, dragView: true},
+  });
+  const legendEl = document.querySelector(".legend");
+  legendEl.innerHTML = `<span style="background:#f59e0b"></span>application &nbsp;
+    <span style="background:#3b82f6"></span>direct &nbsp;
+    <span style="background:#6b7280"></span>transitive &nbsp;
+    <span style="background:#ef4444"></span>vulnerable<br><span style="color:var(--muted)">${esc(label)}</span>`;
+}
+
+function focusNode(query) {
+  if (!network || !query.trim()) return;
+  const match = (graphData.nodes || []).find(n => n.id.toLowerCase().includes(query.toLowerCase()));
+  if (match) {
+    network.selectNodes([match.id]);
+    network.focus(match.id, {scale: 1.4, animation: {duration: 500}});
+  }
+}
+function resetPhysics() { if (network) network.fit({animation: {duration: 600}}); }
+
+// ---- components -----------------------------------------------------------
+let compTimer = null;
+function loadComponents(query) {
+  clearTimeout(compTimer);
+  compTimer = setTimeout(async () => {
+    if (!currentRun) return;
+    const res = await fetch(`/api/runs/${currentRun.id}/inventory?search=${encodeURIComponent(query)}&limit=300`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const rows = data.components.map(c => `
+      <tr><td class="mono">${esc(c.key)}</td>
+      <td><span class="badge ${c.scope === "direct" ? "b-verified" : "b-info"}">${c.scope}</span></td>
+      <td>${esc(c.ecosystem)}</td>
+      <td class="mono" style="color:var(--muted)">${esc((c.depends_on || []).slice(0, 5).join(", "))}${(c.depends_on || []).length > 5 ? " …" : ""}</td></tr>`).join("");
+    document.getElementById("compbody").innerHTML = `<div class="hint" style="margin:0 0 10px">${data.matches} matches (showing ${data.shown})</div>
+      <table><tr><th>Component</th><th>Scope</th><th>Ecosystem</th><th>Depends on</th></tr>${rows}</table>`;
+  }, 250);
+}
+
+// ---- report -----------------------------------------------------------------
+async function loadReport() {
+  if (!currentRun) return;
+  const frame = document.getElementById("reportFrame");
+  frame.src = `/api/runs/${currentRun.id}/report.html`;
+  document.getElementById("reportLink").href = `/api/runs/${currentRun.id}/report.html`;
+}
+
+// ---- previous runs ------------------------------------------------------------
+async function loadRuns() {
+  const res = await fetch("/api/runs");
+  if (!res.ok) return;
+  const runs = await res.json();
+  if (!runs.length) return;
+  const box = document.getElementById("runs");
+  box.innerHTML = '<span class="hint" style="margin-right:8px">previous runs:</span>' +
+    runs.slice(0, 12).map(r =>
+      `<button onclick="openRun('${r.id}')">${esc(r.name)} · ${r.status}${r.url ? " · " + esc(r.url.split("github.com/")[1] || "") : ""}</button>`
+    ).join("");
+}
+function openRun(id) {
+  currentRun = {id};
+  setStatus("");
+  resetView();
+  clearInterval(pollTimer);
+  pollRun().then(() => { clearInterval(pollTimer); loadCounts(); loadGraph(); });
+}
+
+function esc(text) {
+  return String(text ?? "").replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+loadRuns();
+</script>
+</body>
+</html>

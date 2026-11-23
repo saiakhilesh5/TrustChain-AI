@@ -64,7 +64,7 @@ def _merge_analyses(entries: list[dict], agent_summary: dict) -> None:
 
 
 def _model_name(client: LlmClient) -> str:
-    return getattr(client, "model", "anthropic")
+    return getattr(client, "model", "gemini")
 
 
 def _load(path: Path) -> dict | list:

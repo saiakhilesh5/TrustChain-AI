@@ -96,3 +96,70 @@ def test_orchestrator_offline_mode(tmp_path):
     report = build_report_data(tmp_path, client=None)
     assert report["agent_summary"]["agent_model"].startswith("offline")
     assert report["findings"]["stats"]["total"] == 0
+
+
+def test_gemini_client_loads_env_keys(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY_1", "key-one")
+    monkeypatch.setenv("GEMINI_API_KEY_2", "key-two")
+    from trustchain.agents.client import GeminiClient
+
+    client = GeminiClient()
+    assert client.key_count == 2
+    assert client.model  # default model selected
+
+
+def test_gemini_client_ignores_placeholder_keys(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY_1", "your-gemini-api-key-1")
+    from trustchain.agents.client import GeminiClient
+
+    try:
+        GeminiClient()
+        raised = False
+    except RuntimeError:
+        raised = True
+    assert raised
+
+
+def test_gemini_client_rotates_on_rate_limit(monkeypatch):
+    from trustchain.agents import client as client_module
+
+    calls = []
+
+    class FakeResponse:
+        def __init__(self, status_code, text):
+            self.status_code = status_code
+            self.text = text
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": '{"ok": true}'}]}}]}
+
+    def fake_post(url, params=None, json=None, timeout=None):
+        calls.append(params["key"])
+        if params["key"] == "key-one":
+            return FakeResponse(429, "rate limited")
+        return FakeResponse(200, "ok")
+
+    monkeypatch.setattr(client_module.requests, "post", fake_post)
+    client = client_module.GeminiClient(keys=["key-one", "key-two"])
+    assert client.complete("sys", "user") == '{"ok": true}'
+    assert calls == ["key-one", "key-two"]
+    assert client.key_status[0] == "rate-limited"
+
+
+def test_gemini_client_all_keys_limited(monkeypatch):
+    from trustchain.agents import client as client_module
+
+    class FakeResponse:
+        status_code = 429
+        text = "rate limited"
+
+    monkeypatch.setattr(client_module.requests, "post", lambda *a, **k: FakeResponse())
+    monkeypatch.setattr(client_module.time, "sleep", lambda seconds: None)
+    client = client_module.GeminiClient(keys=["key-one", "key-two"])
+    try:
+        client.complete("sys", "user")
+        raised = False
+    except RuntimeError as error:
+        raised = "failed" in str(error)
+    assert raised
+

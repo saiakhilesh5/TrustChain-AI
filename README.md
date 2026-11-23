@@ -30,7 +30,7 @@ workflow:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Agent Layer (Claude)                     │
+│                    Agent Layer (Gemini)                       │
 │                                                              │
 │  Orchestrator ── plans, routes, aggregates, enforces gates   │
 │    ├── Discovery Agent        (components + origins)         │
@@ -64,8 +64,7 @@ or release anything — remediation requires human approval by construction.
 
 | Repo | Role | Why |
 |------|------|-----|
-| [strapi/strapi](https://github.com/strapi/strapi) | **Validation** | Huge npm dependency tree; its dependabot / CVE-fix commit history is ground truth — we rewind to pre-fix commits and measure whether the Guardian detects the issue (precision/recall). |
-| [ROBOTIS-GIT/turtlebot3](https://github.com/ROBOTIS-GIT/turtlebot3) | **Prediction** | A completely different ecosystem (ROS `package.xml` manifests). Running the *same* agent, unchanged, on it demonstrates generality; findings are novel and framed as pending human review. |
+| [strapi/strapi](https://github.com/strapi/strapi) | **Validation + demo target** | Huge npm dependency tree (3000+ components); its dependabot / CVE-fix commit history is ground truth — we rewind to pre-fix commits and measure whether the Guardian detects the issue (precision/recall). |
 
 ## How validation works
 
@@ -86,10 +85,6 @@ isn't making things up?"* — with a measurable, reproducible number.
 |------------|--------|
 | Vulnerability detection on pre-fix snapshots | 6/6 detected — recall **1.00** |
 | Dependency version-change detection | 11/12 detected — recall **0.917** |
-
-The prediction run on TurtleBot3 (a ROS repository, zero changes to the same code) surfaced
-10 unpinned CI actions — findings not previously reported anywhere, framed as pending human
-review.
 
 ## Setup
 
@@ -113,17 +108,22 @@ python scripts/fetch_samples.py
 
 ### Configuration
 
-Agents use the Anthropic API. Set your key:
+Agents use the **Gemini API** with multi-key rotation. Copy the template and paste your keys:
 
 ```bash
-# Windows (PowerShell)
-$env:ANTHROPIC_API_KEY = "sk-ant-..."
-
-# Linux/macOS
-export ANTHROPIC_API_KEY="sk-ant-..."
+cp .env.example .env
+# then edit .env:
+#   GEMINI_API_KEY_1=AIza...
+#   GEMINI_API_KEY_2=AIza...
+#   ... up to 6 keys
 ```
 
-The key is read from the environment only — never stored, never committed.
+When one key hits its rate limit (HTTP 429), the client automatically rotates to the next
+key and retries. The model can be overridden with `TRUSTCHAIN_MODEL` (default
+`gemini-3.8-flash`).
+
+`.env` is gitignored — keys are never stored in git, and a run without keys still works
+via `--no-ai` (tools-only report).
 
 ## Usage
 
@@ -135,13 +135,22 @@ python -m trustchain scan --target samples/strapi --output outputs/strapi
 # Generate the interactive dependency graph (vulnerable components highlighted)
 python -m trustchain graph --target samples/strapi --output outputs/strapi
 
-# Produce the Guardian report (HTML + JSON) with Claude agent analysis
-# (set ANTHROPIC_API_KEY, or pass --no-ai for a tools-only report)
+# Produce the Guardian report (HTML + JSON) with Gemini agent analysis
+# (fill .env with Gemini keys, or pass --no-ai for a tools-only report)
 python -m trustchain report --run outputs/strapi
 
 # Retrospective validation: mine dependency-bump commits, rewind to
 # pre-fix snapshots, and score the Guardian against known fixes
 python -m trustchain validate --target samples/strapi --output outputs/strapi-validation
+```
+
+### Web UI
+
+Paste any GitHub repository URL and watch the Day 1 checklist fill in, browse findings,
+and explore the interactive dependency graph — all in the browser:
+
+```bash
+python -m trustchain serve        # opens http://127.0.0.1:5000
 ```
 
 ## Project layout
@@ -153,8 +162,9 @@ TrustChain-AI/
 │   ├── graph/       # dependency graph building + visualization
 │   ├── scan/        # CVE correlation (OSV), path tracing
 │   ├── anomaly/     # typosquats, CI pinning, image tags, diff anomalies
-│   ├── agents/      # Claude orchestrator + subagents
+│   ├── agents/      # Gemini agents (multi-key rotation) + orchestrator
 │   ├── evidence/    # append-only evidence ledger
+│   ├── web/         # Flask API + single-page web UI
 │   └── report/      # HTML + JSON Guardian report
 ├── scripts/         # sample fetch, validation harness
 ├── samples/         # cloned sample repos (gitignored)
@@ -174,9 +184,11 @@ TrustChain-AI/
 
 - [x] M0 — Project scaffold, architecture, setup docs
 - [x] M1 — Manifest parsers + component inventory
-- [ ] M2 — CycloneDX SBOM + dependency graph
+- [x] M2 — CycloneDX SBOM + dependency graph
 - [x] M3 — CVE scan + transitive path tracing
 - [x] M4 — Anomaly detection (CI, images, diffs, typosquats)
-- [x] M5 — Claude agent layer + evidence store + Guardian report
-- [x] M6 — Validation harness (Strapi history) + prediction run (TurtleBot3)
+- [x] M5 — Gemini agent layer + evidence store + Guardian report
+- [x] M6 — Validation harness (Strapi history)
+- [x] M7 — Gemini multi-key rotation + .env configuration
+- [x] M8 — Web UI: scan by URL, Day 1 checklist, findings, graph
 - [ ] Day 2 — Prioritizer, remediation, validation agents

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from trustchain import __version__
 from trustchain.discovery import discover
+from trustchain.env import load_env
 from trustchain.graph import build_graph, generate_cyclonedx, render_html
 
 
@@ -30,12 +31,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     report = subparsers.add_parser("report", help="Generate the Guardian report")
     report.add_argument("--run", required=True, help="Scan output directory")
-    report.add_argument("--no-ai", action="store_true", help="Skip Claude agents (tools-only report)")
+    report.add_argument("--no-ai", action="store_true", help="Skip Gemini agents (tools-only report)")
 
     validate = subparsers.add_parser("validate", help="Retrospective validation on dependency-bump history")
     validate.add_argument("--target", required=True, help="Path to the repository to validate against")
     validate.add_argument("--output", required=True, help="Directory for validation results")
     validate.add_argument("--limit", type=int, default=12, help="Number of bump commits to analyze")
+
+    serve = subparsers.add_parser("serve", help="Launch the web UI (scan by URL in the browser)")
+    serve.add_argument("--host", default="127.0.0.1", help="Bind address")
+    serve.add_argument("--port", type=int, default=5000, help="Port")
 
     return parser
 
@@ -48,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
 
+    load_env()
+
     if args.command == "scan":
         return _cmd_scan(args)
     if args.command == "graph":
@@ -56,6 +63,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_report(args)
     if args.command == "validate":
         return _cmd_validate(args)
+    if args.command == "serve":
+        return _cmd_serve(args)
 
     return 0
 
@@ -136,22 +145,28 @@ def _cmd_report(args) -> int:
 
     client = None
     if not args.no_ai:
-        from trustchain.agents.client import AnthropicClient
+        from trustchain.agents.client import GeminiClient
 
         try:
-            client = AnthropicClient()
-            print(f"[agent]   using Claude model: {client.model}")
+            client = GeminiClient()
+            print(f"[agent]   using Gemini model: {client.model} "
+                  f"({client.key_count} API key(s) loaded)")
         except RuntimeError as error:
             print(f"[agent]   {error}")
             print("[agent]   continuing with --no-ai behavior (tools-only report)")
     else:
-        print("[agent]   --no-ai: skipping Claude agents")
+        print("[agent]   --no-ai: skipping Gemini agents")
 
     from trustchain.agents.orchestrator import build_report_data
     from trustchain.report.render import render_report
 
     print("[guardian] building evidence ledger and running agents ...")
-    report = build_report_data(run_dir, client=client)
+    try:
+        report = build_report_data(run_dir, client=client)
+    except RuntimeError as error:
+        print(f"[agent]   {error}")
+        print("[agent]   falling back to tools-only report")
+        report = build_report_data(run_dir, client=None)
     stats = report["findings"]["stats"]
     print(f"[guardian] {stats['total']} findings ({stats['verified']} verified, {stats['inferred']} inferred)")
     html_path, json_path = render_report(report, run_dir)
@@ -179,6 +194,13 @@ def _cmd_validate(args) -> int:
     print(f"[validate] version-change detection: {diff['detected']}/{diff['total']} "
           f"(recall {diff['recall']})")
     print(f"[validate] report written to {out_file}")
+    return 0
+
+
+def _cmd_serve(args) -> int:
+    from trustchain.web.app import main as serve_main
+
+    serve_main(host=args.host, port=args.port)
     return 0
 
 

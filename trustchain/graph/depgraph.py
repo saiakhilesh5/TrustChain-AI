@@ -67,14 +67,20 @@ def render_html(graph: nx.DiGraph, output: Path, max_nodes: int = 300, highlight
     from pyvis.network import Network
 
     highlight = highlight or set()
-    keep = {ROOT} | highlight | {n for n, d in graph.nodes(data=True) if d.get("scope") == "direct"}
+    keep = {ROOT} | highlight
     if graph.number_of_nodes() > max_nodes:
+        for node, data in graph.nodes(data=True):
+            if data.get("scope") == "direct" and len(keep) < max_nodes:
+                keep.add(node)
         remaining = sorted(
             (n for n in graph if n not in keep),
             key=lambda n: graph.degree(n),
             reverse=True,
         )
-        keep.update(remaining[: max_nodes - len(keep)])
+        for node in remaining:
+            if len(keep) >= max_nodes:
+                break
+            keep.add(node)
     else:
         keep.update(graph.nodes)
 

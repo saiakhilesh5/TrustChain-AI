@@ -39,27 +39,38 @@ For each finding provide:
 """
 
 
+BATCH_SIZE = 25
+
+
 def analyze_vulnerabilities(client: LlmClient, findings: list[dict]) -> dict:
     if not findings:
         return {}
-    payload = [
-        {
-            "id": f["id"],
-            "component": f["component"],
-            "cve": f.get("cve", f.get("advisory_id", "")),
-            "severity": f["severity"],
-            "fixed_versions": f.get("fixed_versions", []),
-            "dependency_paths": f.get("dependency_paths", [])[:3],
-        }
-        for f in findings
-    ]
-    user = "Analyze these findings:\n" + _dumps(payload)
-    response = client.complete(SYSTEM_PROMPT, user, max_tokens=8000)
-    result = extract_json(response)
-    analyses = result.get("analyses", {})
-    # hallucination control: keep only ids that exist in the input
+    analyses = {}
     valid_ids = {f["id"] for f in findings}
-    return {k: v for k, v in analyses.items() if k in valid_ids}
+    for start in range(0, len(findings), BATCH_SIZE):
+        chunk = findings[start : start + BATCH_SIZE]
+        payload = [
+            {
+                "id": f["id"],
+                "component": f["component"],
+                "cve": f.get("cve", f.get("advisory_id", "")),
+                "severity": f["severity"],
+                "fixed_versions": f.get("fixed_versions", []),
+                "dependency_paths": f.get("dependency_paths", [])[:3],
+            }
+            for f in chunk
+        ]
+        user = f"Analyze these findings (batch {start // BATCH_SIZE + 1}):\n" + _dumps(payload)
+        try:
+            response = client.complete(SYSTEM_PROMPT, user, max_tokens=8000)
+            result = extract_json(response)
+        except (ValueError, RuntimeError):
+            # malformed or truncated agent output — keep tool-verified facts only
+            continue
+        for key, value in result.get("analyses", {}).items():
+            if key in valid_ids:
+                analyses[key] = value
+    return analyses
 
 
 def _dumps(data) -> str:

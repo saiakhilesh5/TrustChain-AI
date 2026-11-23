@@ -1,4 +1,4 @@
-"""Fetch the sample repositories used for validation and prediction runs.
+"""Fetch the sample repository used for validation and demo runs.
 
 Clones into samples/ (gitignored). Strapi uses a partial clone so the full
 repository is available for historical commit mining without downloading
@@ -15,11 +15,6 @@ SAMPLES = [
         "url": "https://github.com/strapi/strapi.git",
         # partial clone: history + trees now, blobs on demand
         "args": ["--filter=blob:none"],
-    },
-    {
-        "name": "turtlebot3",
-        "url": "https://github.com/ROBOTIS-GIT/turtlebot3.git",
-        "args": [],
     },
 ]
 

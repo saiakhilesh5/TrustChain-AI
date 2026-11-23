@@ -54,8 +54,12 @@ def analyze_anomalies(client: LlmClient, findings: list[dict]) -> dict:
         for f in findings
     ]
     user = "Analyze these anomaly findings:\n" + _dumps(payload)
-    response = client.complete(SYSTEM_PROMPT, user, max_tokens=8000)
-    result = extract_json(response)
+    try:
+        response = client.complete(SYSTEM_PROMPT, user, max_tokens=8000)
+        result = extract_json(response)
+    except (ValueError, RuntimeError):
+        # malformed or truncated agent output — keep tool-verified facts only
+        return {}
     analyses = result.get("analyses", {})
     valid_ids = {f["id"] for f in findings}
     return {k: v for k, v in analyses.items() if k in valid_ids}
