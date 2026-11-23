@@ -1,0 +1,28 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Deploy with "New +" -> "Blueprint" and select this repository.
+# The Gemini API keys are secrets: set their values in the Render dashboard
+# when prompted (sync: false keeps them out of this file).
+services:
+  - type: web
+    name: trustchain-ai
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: waitress-serve --call --port=$PORT trustchain.web.app:create_app
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GEMINI_API_KEY_1
+        sync: false
+      - key: GEMINI_API_KEY_2
+        sync: false
+      - key: GEMINI_API_KEY_3
+        sync: false
+      - key: GEMINI_API_KEY_4
+        sync: false
+      - key: GEMINI_API_KEY_5
+        sync: false
+      - key: GEMINI_API_KEY_6
+        sync: false
