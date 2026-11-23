@@ -7,6 +7,7 @@ from pathlib import Path
 
 from trustchain import __version__
 from trustchain.discovery import discover
+from trustchain.graph import build_graph, generate_cyclonedx, render_html
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,17 +56,33 @@ def _cmd_scan(args) -> int:
     inventory = discover(args.target)
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
+    inventory_dict = inventory.to_dict()
+
     out_file = output / "inventory.json"
-    out_file.write_text(json.dumps(inventory.to_dict(), indent=2), encoding="utf-8")
-    stats = inventory.to_dict()["stats"]
+    out_file.write_text(json.dumps(inventory_dict, indent=2), encoding="utf-8")
+
+    sbom = generate_cyclonedx(inventory_dict)
+    (output / "sbom.cdx.json").write_text(json.dumps(sbom, indent=2), encoding="utf-8")
+
+    stats = inventory_dict["stats"]
     print(f"[discover] {stats['total']} components ({stats['direct']} direct, {stats['transitive']} transitive)")
+    print(f"[sbom]     CycloneDX written to {output / 'sbom.cdx.json'}")
     print(f"[discover] inventory written to {out_file}")
     return 0
 
 
 def _cmd_graph(args) -> int:
-    print(f"graph command is not implemented yet", file=sys.stderr)
-    return 2
+    inventory_file = Path(args.output) / "inventory.json"
+    if not inventory_file.exists():
+        print(f"no inventory found at {inventory_file} — run 'scan' first", file=sys.stderr)
+        return 1
+    inventory = json.loads(inventory_file.read_text(encoding="utf-8"))
+    graph = build_graph(inventory)
+    output = Path(args.output)
+    html = render_html(graph, output / "graph.html")
+    print(f"[graph]    {graph.number_of_nodes()} nodes, {graph.number_of_edges()} edges")
+    print(f"[graph]    interactive graph written to {html}")
+    return 0
 
 
 def _cmd_report(args) -> int:
