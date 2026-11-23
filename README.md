@@ -143,7 +143,7 @@ TrustChain-AI/
 ## Milestones
 
 - [x] M0 — Project scaffold, architecture, setup docs
-- [ ] M1 — Manifest parsers + component inventory
+- [x] M1 — Manifest parsers + component inventory
 - [ ] M2 — CycloneDX SBOM + dependency graph
 - [ ] M3 — CVE scan + transitive path tracing
 - [ ] M4 — Anomaly detection (CI, images, diffs, typosquats)

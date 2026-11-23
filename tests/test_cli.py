@@ -15,5 +15,7 @@ def test_no_command_shows_help(capsys):
     assert "usage" in capsys.readouterr().out.lower()
 
 
-def test_unknown_command_is_graceful(capsys):
-    assert main(["scan", "--target", "x", "--output", "y"]) == 2
+def test_scan_command_runs(tmp_path):
+    (tmp_path / "requirements.txt").write_text("flask==3.0.0\n", encoding="utf-8")
+    assert main(["scan", "--target", str(tmp_path), "--output", str(tmp_path / "out")]) == 0
+    assert (tmp_path / "out" / "inventory.json").exists()

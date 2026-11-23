@@ -1,9 +1,12 @@
 """TrustChain-AI command line interface."""
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 from trustchain import __version__
+from trustchain.discovery import discover
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,7 +40,36 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
 
-    print(f"trustchain {__version__} — command '{args.command}' is not implemented yet", file=sys.stderr)
+    if args.command == "scan":
+        return _cmd_scan(args)
+    if args.command == "graph":
+        return _cmd_graph(args)
+    if args.command == "report":
+        return _cmd_report(args)
+
+    return 0
+
+
+def _cmd_scan(args) -> int:
+    print(f"[discover] scanning {args.target} ...")
+    inventory = discover(args.target)
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=True)
+    out_file = output / "inventory.json"
+    out_file.write_text(json.dumps(inventory.to_dict(), indent=2), encoding="utf-8")
+    stats = inventory.to_dict()["stats"]
+    print(f"[discover] {stats['total']} components ({stats['direct']} direct, {stats['transitive']} transitive)")
+    print(f"[discover] inventory written to {out_file}")
+    return 0
+
+
+def _cmd_graph(args) -> int:
+    print(f"graph command is not implemented yet", file=sys.stderr)
+    return 2
+
+
+def _cmd_report(args) -> int:
+    print(f"report command is not implemented yet", file=sys.stderr)
     return 2
 
 
