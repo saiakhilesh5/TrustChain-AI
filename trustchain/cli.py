@@ -84,6 +84,19 @@ def _cmd_scan(args) -> int:
         print(f"[osv]      {len(findings)} findings: " + ", ".join(
             f"{count} {sev.lower()}" for sev, count in sorted(by_severity.items(), reverse=True)
         ))
+
+    from trustchain.anomaly import scan_anomalies
+
+    print(f"[anomaly]  scanning CI workflows, Dockerfiles, install scripts, typosquats ...")
+    anomalies = scan_anomalies(args.target, inventory_dict)
+    (output / "anomalies.json").write_text(json.dumps(anomalies, indent=2), encoding="utf-8")
+    by_anomaly: dict[str, int] = {}
+    for finding in anomalies:
+        by_anomaly[finding["anomaly"]] = by_anomaly.get(finding["anomaly"], 0) + 1
+    print(f"[anomaly]  {len(anomalies)} findings: " + (
+        ", ".join(f"{count} {label}" for label, count in sorted(by_anomaly.items()))
+        or "none"
+    ))
     return 0
 
 

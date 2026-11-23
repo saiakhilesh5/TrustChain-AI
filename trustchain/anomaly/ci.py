@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-USES_RE = re.compile(r"^\s*uses:\s*(?P<ref>\S+)")
+USES_RE = re.compile(r"^\s*-?\s*uses:\s*(?P<ref>\S+)")
 RUN_RE = re.compile(r"^\s*run:\s*(?P<script>.*)")
 
 
