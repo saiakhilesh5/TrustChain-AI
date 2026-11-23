@@ -30,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     report = subparsers.add_parser("report", help="Generate the Guardian report")
     report.add_argument("--run", required=True, help="Scan output directory")
+    report.add_argument("--no-ai", action="store_true", help="Skip Claude agents (tools-only report)")
 
     return parser
 
@@ -120,8 +121,36 @@ def _cmd_graph(args) -> int:
 
 
 def _cmd_report(args) -> int:
-    print(f"report command is not implemented yet", file=sys.stderr)
-    return 2
+    run_dir = Path(args.run)
+    inventory_file = run_dir / "inventory.json"
+    if not inventory_file.exists():
+        print(f"no inventory found at {inventory_file} — run 'scan' first", file=sys.stderr)
+        return 1
+
+    client = None
+    if not args.no_ai:
+        from trustchain.agents.client import AnthropicClient
+
+        try:
+            client = AnthropicClient()
+            print(f"[agent]   using Claude model: {client.model}")
+        except RuntimeError as error:
+            print(f"[agent]   {error}")
+            print("[agent]   continuing with --no-ai behavior (tools-only report)")
+    else:
+        print("[agent]   --no-ai: skipping Claude agents")
+
+    from trustchain.agents.orchestrator import build_report_data
+    from trustchain.report.render import render_report
+
+    print("[guardian] building evidence ledger and running agents ...")
+    report = build_report_data(run_dir, client=client)
+    stats = report["findings"]["stats"]
+    print(f"[guardian] {stats['total']} findings ({stats['verified']} verified, {stats['inferred']} inferred)")
+    html_path, json_path = render_report(report, run_dir)
+    print(f"[report]  HTML: {html_path}")
+    print(f"[report]  JSON: {json_path}")
+    return 0
 
 
 if __name__ == "__main__":

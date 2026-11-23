@@ -147,6 +147,6 @@ TrustChain-AI/
 - [ ] M2 — CycloneDX SBOM + dependency graph
 - [x] M3 — CVE scan + transitive path tracing
 - [x] M4 — Anomaly detection (CI, images, diffs, typosquats)
-- [ ] M5 — Claude agent layer + evidence store + Guardian report
+- [x] M5 — Claude agent layer + evidence store + Guardian report
 - [ ] M6 — Validation harness (Strapi history) + prediction run (TurtleBot3)
 - [ ] Day 2 — Prioritizer, remediation, validation agents
