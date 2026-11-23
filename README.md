@@ -153,6 +153,20 @@ and explore the interactive dependency graph — all in the browser:
 python -m trustchain serve        # opens http://127.0.0.1:5000
 ```
 
+### Deploy (Render)
+
+The repo ships a [render.yaml](render.yaml) blueprint (free tier, waitress server,
+`/api/health` health check):
+
+1. Render dashboard → **New +** → **Blueprint** → select this repository.
+2. When prompted, fill in the secret values for `GEMINI_API_KEY_1` … `GEMINI_API_KEY_6`.
+3. **Apply** — the service builds with `pip install -r requirements.txt` and starts
+   `waitress-serve --call --port=$PORT trustchain.web.app:create_app`.
+
+Note: free-tier instances sleep after ~15 min idle and their disk is ephemeral — scan
+results live for the lifetime of the instance. The UI polls every 2s during a scan,
+which keeps the instance awake while a pipeline is running.
+
 ## Project layout
 
 ```
