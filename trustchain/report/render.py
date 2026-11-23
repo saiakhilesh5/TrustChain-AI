@@ -78,9 +78,9 @@ TEMPLATE = Template("""<!DOCTYPE html>
   {% endif %}
   {% if entry.get('ai_analysis') %}
   <div class="ai"><span class="tag">AI analysis — inference, not verified evidence</span><br>
-    {{ entry.ai_analysis.attention_reason or entry.ai_analysis.reasoning }}
-    {% if entry.ai_analysis.reachability_note %}<br><i>{{ entry.ai_analysis.reachability_note }}</i>{% endif %}
-    <br>verdict: <b>{{ entry.ai_analysis.risk_level or entry.ai_analysis.verdict or "n/a" }}</b> · confidence: {{ entry.ai_analysis.confidence }}
+    {{ entry.ai_analysis.get('attention_reason') or entry.ai_analysis.get('reasoning') }}
+    {% if entry.ai_analysis.get('reachability_note') %}<br><i>{{ entry.ai_analysis.get('reachability_note') }}</i>{% endif %}
+    <br>verdict: <b>{{ entry.ai_analysis.get('risk_level') or entry.ai_analysis.get('verdict') or "n/a" }}</b> · confidence: {{ entry.ai_analysis.get('confidence') }}
   </div>
   {% endif %}
 </div>
@@ -98,7 +98,7 @@ TEMPLATE = Template("""<!DOCTYPE html>
       <span class="id">{{ entry.id }}</span>
     </div>
     {% if entry.get('ai_analysis') and loop.index <= 20 %}
-    <div class="ai"><span class="tag">AI</span> {{ entry.ai_analysis.attention_reason }} ({{ entry.ai_analysis.confidence }})</div>
+    <div class="ai"><span class="tag">AI</span> {{ entry.ai_analysis.get('attention_reason') or entry.ai_analysis.get('reasoning') }} ({{ entry.ai_analysis.get('confidence') }})</div>
     {% endif %}
   </div>
   {% endfor %}
@@ -115,7 +115,7 @@ TEMPLATE = Template("""<!DOCTYPE html>
     </div>
     <div class="detail">{{ entry.detail }}</div>
     {% if entry.get('ai_analysis') and loop.index <= 20 %}
-    <div class="ai"><span class="tag">AI</span> {{ entry.ai_analysis.reasoning }} → {{ entry.ai_analysis.recommended_action }} ({{ entry.ai_analysis.confidence }})</div>
+    <div class="ai"><span class="tag">AI</span> {{ entry.ai_analysis.get('reasoning') }} → {{ entry.ai_analysis.get('recommended_action') }} ({{ entry.ai_analysis.get('confidence') }})</div>
     {% endif %}
   </div>
   {% endfor %}

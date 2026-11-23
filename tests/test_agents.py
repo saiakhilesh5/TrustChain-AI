@@ -98,6 +98,30 @@ def test_orchestrator_offline_mode(tmp_path):
     assert report["findings"]["stats"]["total"] == 0
 
 
+def test_render_anomaly_only_report(tmp_path):
+    # regression: anomaly findings with AI analysis (reasoning, no attention_reason)
+    # used to crash the template's top-risks section under StrictUndefined
+    (tmp_path / "inventory.json").write_text(json.dumps(
+        {"target": "app", "stats": {"total": 1, "direct": 1, "transitive": 0}, "components": []}
+    ), encoding="utf-8")
+    (tmp_path / "vulnerabilities.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "anomalies.json").write_text(json.dumps([
+        {"type": "anomaly", "component": "npm:x@1", "component_name": "x", "version": "1",
+         "severity": "MODERATE", "anomaly": "unpinned-ci-action", "detail": "d",
+         "evidence": {"path": ".github/workflows/ci.yml", "line": 10, "content": "uses: actions/checkout"}},
+    ]), encoding="utf-8")
+    fake = FakeLlm(json.dumps({"analyses": {"T-0001": {
+        "verdict": "suspicious", "reasoning": "unpinned action",
+        "recommended_action": "pin to SHA", "confidence": "medium",
+    }}}))
+    report = build_report_data(tmp_path, client=fake)
+    from trustchain.report.render import render_report
+    html_path, _json = render_report(report, tmp_path)
+    html = html_path.read_text(encoding="utf-8")
+    assert "unpinned action" in html
+    assert "pin to SHA" in html
+
+
 def test_gemini_client_loads_env_keys(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY_1", "key-one")
     monkeypatch.setenv("GEMINI_API_KEY_2", "key-two")
