@@ -145,7 +145,7 @@ TrustChain-AI/
 - [x] M0 — Project scaffold, architecture, setup docs
 - [x] M1 — Manifest parsers + component inventory
 - [ ] M2 — CycloneDX SBOM + dependency graph
-- [ ] M3 — CVE scan + transitive path tracing
+- [x] M3 — CVE scan + transitive path tracing
 - [ ] M4 — Anomaly detection (CI, images, diffs, typosquats)
 - [ ] M5 — Claude agent layer + evidence store + Guardian report
 - [ ] M6 — Validation harness (Strapi history) + prediction run (TurtleBot3)

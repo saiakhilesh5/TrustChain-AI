@@ -22,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan = subparsers.add_parser("scan", help="Run the discovery + detection pipeline")
     scan.add_argument("--target", required=True, help="Path to the repository to scan")
     scan.add_argument("--output", required=True, help="Directory for scan results")
+    scan.add_argument("--no-vulns", action="store_true", help="Skip OSV vulnerability correlation")
 
     graph = subparsers.add_parser("graph", help="Build the dependency graph visualization")
     graph.add_argument("--target", required=True, help="Path to the scanned repository")
@@ -68,6 +69,21 @@ def _cmd_scan(args) -> int:
     print(f"[discover] {stats['total']} components ({stats['direct']} direct, {stats['transitive']} transitive)")
     print(f"[sbom]     CycloneDX written to {output / 'sbom.cdx.json'}")
     print(f"[discover] inventory written to {out_file}")
+
+    if not args.no_vulns:
+        from trustchain.scan.correlate import scan_vulnerabilities
+
+        print(f"[osv]      correlating {stats['total']} components with OSV.dev (cached) ...")
+        findings = scan_vulnerabilities(inventory_dict, cache_dir=output)
+        (output / "vulnerabilities.json").write_text(
+            json.dumps(findings, indent=2), encoding="utf-8"
+        )
+        by_severity: dict[str, int] = {}
+        for finding in findings:
+            by_severity[finding["severity"]] = by_severity.get(finding["severity"], 0) + 1
+        print(f"[osv]      {len(findings)} findings: " + ", ".join(
+            f"{count} {sev.lower()}" for sev, count in sorted(by_severity.items(), reverse=True)
+        ))
     return 0
 
 
@@ -78,8 +94,13 @@ def _cmd_graph(args) -> int:
         return 1
     inventory = json.loads(inventory_file.read_text(encoding="utf-8"))
     graph = build_graph(inventory)
+    highlight = set()
+    vuln_file = Path(args.output) / "vulnerabilities.json"
+    if vuln_file.exists():
+        for finding in json.loads(vuln_file.read_text(encoding="utf-8")):
+            highlight.add(finding["component"])
     output = Path(args.output)
-    html = render_html(graph, output / "graph.html")
+    html = render_html(graph, output / "graph.html", highlight=highlight)
     print(f"[graph]    {graph.number_of_nodes()} nodes, {graph.number_of_edges()} edges")
     print(f"[graph]    interactive graph written to {html}")
     return 0
