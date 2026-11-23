@@ -79,7 +79,10 @@ def render_html(graph: nx.DiGraph, output: Path, max_nodes: int = 300, highlight
         keep.update(graph.nodes)
 
     sub = graph.subgraph(keep)
-    net = Network(height="900px", width="100%", directed=True, bgcolor="#111827", font_color="#e5e7eb")
+    net = Network(
+        height="900px", width="100%", directed=True, bgcolor="#111827",
+        font_color="#e5e7eb", cdn_resources="remote",
+    )
     for node, data in sub.nodes(data=True):
         if node == ROOT:
             net.add_node(node, label=data.get("label", node), color="#f59e0b", shape="diamond", size=25)
