@@ -7,6 +7,8 @@
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning}
 \usepackage{enumitem}
+\usepackage{graphicx}
+\graphicspath{{screenshots/}}
 \usepackage[hidelinks]{hyperref}
 
 \definecolor{guardian}{RGB}{245,158,11}
@@ -188,6 +190,14 @@ dependency edges and reverse dependencies. On the Strapi repository this yields
         and package lifecycle scripts are scanned (Section~\ref{sec:anomalies}).
 \end{itemize}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{03-graph.png}
+\caption{Interactive dependency graph in the web UI (Strapi: 3003 nodes reduced to the
+250 most-connected, all 46 vulnerable components kept and highlighted in red).}
+\label{fig:graph}
+\end{figure}
+
 \subsection{Step 3 --- Detect vulnerabilities}
 
 Components are batch-queried against \textbf{OSV.dev} (500 per request, with a
@@ -208,6 +218,14 @@ The Strapi scan produces \textbf{116 findings}: 7 critical, 45 high, 38 medium,
 \textbf{MAL- advisories} (malicious-package flags from OSV's malware database:
 MAL-2026-1492, MAL-2026-1487) --- exactly the class of supply-chain attack that
 CVE-only scanners miss.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{02-vulnerabilities.png}
+\caption{Vulnerability browser: severity filter chips, dependency paths, CVSS scores
+and fixed versions for all 116 findings.}
+\label{fig:vulns}
+\end{figure}
 
 \subsection{Step 4 --- Detect suspicious changes}
 \label{sec:anomalies}
@@ -234,6 +252,14 @@ The Strapi run flags \textbf{7 typosquat candidates}, each marked
 \texttt{verified: false} with the matching distance stored as evidence --- an honest
 ``needs-review'' signal rather than a false certainty.
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{04-anomalies.png}
+\caption{Anomaly table in the web UI: 7 typosquat candidates with Levenshtein-distance
+evidence, each labelled \emph{inferred} pending human review.}
+\label{fig:anomalies}
+\end{figure}
+
 \subsection{Step 5 --- Present evidence}
 
 All findings enter the append-only \textbf{EvidenceStore} (123 entries on Strapi:
@@ -242,6 +268,14 @@ id, fixed versions and file/line evidence. The final \textbf{Guardian Report}
 (HTML + JSON) shows statistics, top-risk cards with paths and fixes, AI analysis blocks
 explicitly labelled \emph{``inference, not verified evidence''}, and the full
 methodology.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth,height=0.82\textheight,keepaspectratio]{05-report.png}
+\caption{Guardian Report rendered inline in the web UI. The banner ``AI analysis ---
+inference, not verified evidence'' separates agent reasoning from tool-verified facts.}
+\label{fig:report}
+\end{figure}
 
 %=====================================================================
 \section{Agent Layer in Detail}
@@ -359,6 +393,14 @@ Flask + waitress in production):
   \item Only \texttt{github.com} URLs are accepted; path traversal in artifact
         endpoints is rejected; keys are never exposed to the browser.
 \end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{01-checklist.png}
+\caption{Web UI after a completed Strapi scan: live statistics and the 7-step
+Day~1 checklist at 100\%, with per-step evidence artifacts.}
+\label{fig:checklist}
+\end{figure}
 
 \subsection{Deployment}
 

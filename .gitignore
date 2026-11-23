@@ -22,3 +22,5 @@ Thumbs.db
 .idea/
 .vscode/
 lib/
+.tools/
+docs/TrustChain-AI-Report.log
